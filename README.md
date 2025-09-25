@@ -2,21 +2,15 @@ implenting rbac with clerk and express
 
 
 endpoints
-superadmin permissions-
-get /org get all orgs
-get /org/:id get one org
-post /org create new org
-patch /org/:id edit org 
-delete /org/:id delete org
-post /org/:id/invite invite admin
-get /users get all users
-
-admin permissions(of a particular org)-
-get /org/:id/users get all users
-get /org/:id/users/:userId get one user
-post /org/:id/invite invite new users
-patch /org/:id/users/:userId update user(make admin remove admin)
-delete /org/:id/users/:userId delete user
-
-member permissions(of a particular org)-
-get /org/:id see org deets
+GET    /                           - Health check
+GET    /org                        - Get all orgs (superadmin)
+GET    /org/:id                    - Get one org (member+)
+POST   /org                        - Create org (superadmin)
+PATCH  /org/:id                    - Edit org (superadmin)
+DELETE /org/:id                    - Delete org (superadmin)
+POST   /org/:id/invite             - Invite admin (superadmin)
+GET    /org/:id/users              - Get users in org (admin+)
+GET    /org/:id/users/:userId      - Get one user in org (admin+)
+PATCH  /org/:id/users/:userId      - Update user in org (admin+)
+DELETE /org/:id/users/:userId      - Delete user from org (admin+)
+GET    /users                      - Get all users (superadmin)

@@ -15,9 +15,9 @@ export const clerkAuth = async (req: AuthenticatedRequest, res: Response, next: 
     }
 
     const payload = await clerkClient.verifyToken(token, {
-      secretKey: process.env.CLERK_SECRET_KEY ,
-    });
-
+  secretKey: process.env.CLERK_SECRET_KEY,
+  issuer: 'your-clerk-issuer-url', // Replace with your actual Clerk issuer URL
+});
     const user = await User.findOne({ clerkId: payload.sub });
     
     if (!user) {
