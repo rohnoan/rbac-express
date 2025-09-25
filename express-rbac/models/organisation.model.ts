@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 
-export interface IOrganisation {
+export interface IOrganization {
   _id: string;
   name: string;
   clerkId: string;
@@ -8,9 +8,10 @@ export interface IOrganisation {
   updatedAt: Date;
 }
 
-const organisationSchema = new Schema({
+const organizationSchema = new Schema({
   name: { type: String, required: true },
   clerkId: { type: String, required: true, unique: true }
 }, { timestamps: true });
 
-export const Organisation = model<IOrganisation>('Organisation', organisationSchema);
+// Fix: Explicitly specify the model name and collection name
+export const Organization = model<IOrganization>('Organization', organizationSchema, 'organizations');

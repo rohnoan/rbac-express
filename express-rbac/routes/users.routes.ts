@@ -8,7 +8,7 @@ const router = Router();
 // All routes require authentication
 router.use(clerkAuth);
 
-// User routes
+// Global user management routes (superadmin only)
 router.get('/', requireRoles('superadmin'), usersController.getAllUsers);
 
 export { router as usersRoutes };

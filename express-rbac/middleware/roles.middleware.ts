@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { Role } from '../models/user.model';
-
+import { IUser } from '../models/user.model';
+// roles.middleware.ts - Fix the interface to match
 interface AuthenticatedRequest extends Request {
-  user?: { role: Role; orgClerkId: string };
+  user?: IUser; // Use the same interface as clerkAuth
 }
-
 export const requireRoles = (...roles: Role[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {

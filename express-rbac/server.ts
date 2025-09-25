@@ -20,8 +20,7 @@ app.use('/users', usersRoutes);
 // Health check
 app.get('/', (req, res) => {
   res.json({ message: 'Express RBAC API Server', status: 'running' });
-});
-
+}); 
 // Error handling
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
