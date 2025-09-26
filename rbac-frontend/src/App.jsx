@@ -1,440 +1,168 @@
 import React, { useEffect, useState } from 'react';
-import { ClerkProvider, SignedIn, SignedOut, SignIn, useUser } from '@clerk/clerk-react';
+import { 
+  ClerkProvider, 
+  SignedIn, 
+  SignedOut, 
+  SignIn, 
+  useUser, 
+  useOrganizationList,
+  useOrganization,
+  CreateOrganization,
+  OrganizationSwitcher
+} from '@clerk/clerk-react';
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
-const API_BASE = import.meta.env.VITE_API_BASE;
 const SUPERADMIN_EMAIL = 'sharmarohan2507@gmail.com';
 
-// Fetch wrapper with Clerk session token
-const fetchWithAuth = async (url, options = {}) => {
-  const token = await window.Clerk?.session?.getToken();
-  const res = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-  return res.json();
-};
-
-// Main Dashboard component
 const Dashboard = () => {
   const { user } = useUser();
-  const [orgs, setOrgs] = useState([]);
-  const [selectedOrg, setSelectedOrg] = useState(null);
-  const [orgUsers, setOrgUsers] = useState([]);
-  const [allUsers, setAllUsers] = useState([]);
-  const [view, setView] = useState('orgs'); // 'orgs', 'users', 'org-users'
-  
-  // Form states
-  const [orgForm, setOrgForm] = useState({ name: '', description: '' });
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [editingOrg, setEditingOrg] = useState(null);
-  
-  // Role determination
+  const { organizationList, isLoaded: orgListLoaded } = useOrganizationList();
+  const { organization } = useOrganization();
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
   const isSuperadmin = user?.emailAddresses?.[0]?.emailAddress === SUPERADMIN_EMAIL;
-  const isAdmin = user?.publicMetadata?.role === 'admin' || isSuperadmin;
-  const role = isSuperadmin ? 'superadmin' : (user?.publicMetadata?.role || 'member');
+  const role = isSuperadmin ? 'superadmin' : 'member';
 
-  // Load functions
-  const loadOrgs = async () => {
-    try {
-      const data = await fetchWithAuth('/org');
-      setOrgs(data.data || data || []);
-    } catch (err) {
-      console.error('Load orgs error:', err);
-    }
-  };
-
-  const loadAllUsers = async () => {
-    try {
-      const data = await fetchWithAuth('/users');
-      setAllUsers(data.data || data || []);
-    } catch (err) {
-      console.error('Load users error:', err);
-    }
-  };
-
-  const loadOrgUsers = async (orgId) => {
-    try {
-      const data = await fetchWithAuth(`/org/${orgId}/users`);
-      setOrgUsers(data.data || data || []);
-    } catch (err) {
-      console.error('Load org users error:', err);
-    }
-  };
-
-  const getOneOrg = async (orgId) => {
-    try {
-      const data = await fetchWithAuth(`/org/${orgId}`);
-      console.log('Org details:', data);
-      setSelectedOrg(data.data || data);
-    } catch (err) {
-      console.error('Get org error:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (isSuperadmin || isAdmin) {
-      loadOrgs();
-    }
-    if (isSuperadmin) {
-      loadAllUsers();
-    }
-  }, [isSuperadmin, isAdmin]);
-
-  // CRUD Operations
-  const createOrg = async () => {
-    if (!orgForm.name) return;
-    try {
-      await fetchWithAuth('/org', {
-        method: 'POST',
-        body: JSON.stringify(orgForm),
-      });
-      setOrgForm({ name: '', description: '' });
-      loadOrgs();
-      alert('Organization created!');
-    } catch (err) {
-      console.error('Create org error:', err);
-      alert('Error creating organization');
-    }
-  };
-
-  const editOrg = async () => {
-    if (!editingOrg || !orgForm.name) return;
-    try {
-      await fetchWithAuth(`/org/${editingOrg.id || editingOrg._id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(orgForm),
-      });
-      setEditingOrg(null);
-      setOrgForm({ name: '', description: '' });
-      loadOrgs();
-      alert('Organization updated!');
-    } catch (err) {
-      console.error('Edit org error:', err);
-      alert('Error updating organization');
-    }
-  };
-
-  const deleteOrg = async (orgId) => {
-    if (!confirm('Delete this organization?')) return;
-    try {
-      await fetchWithAuth(`/org/${orgId}`, { method: 'DELETE' });
-      loadOrgs();
-      alert('Organization deleted!');
-    } catch (err) {
-      console.error('Delete org error:', err);
-      alert('Error deleting organization');
-    }
-  };
-
-  const inviteAdmin = async (orgId) => {
-    if (!inviteEmail) return;
-    try {
-      await fetchWithAuth(`/org/${orgId}/invite`, {
-        method: 'POST',
-        body: JSON.stringify({ email: inviteEmail, role: 'admin' }),
-      });
-      setInviteEmail('');
-      alert('Admin invitation sent!');
-    } catch (err) {
-      console.error('Invite admin error:', err);
-      alert('Error inviting admin');
-    }
-  };
-
-  const inviteMember = async (orgId) => {
-    if (!inviteEmail) return;
-    try {
-      await fetchWithAuth(`/org/${orgId}/invite-member`, {
-        method: 'POST',
-        body: JSON.stringify({ email: inviteEmail, role: 'member' }),
-      });
-      setInviteEmail('');
-      alert('Member invitation sent!');
-    } catch (err) {
-      console.error('Invite member error:', err);
-      alert('Error inviting member');
-    }
-  };
-
-  const updateUser = async (orgId, userId, updates) => {
-    try {
-      await fetchWithAuth(`/org/${orgId}/users/${userId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      });
-      loadOrgUsers(orgId);
-      alert('User updated!');
-    } catch (err) {
-      console.error('Update user error:', err);
-      alert('Error updating user');
-    }
-  };
-
-  const deleteUser = async (orgId, userId) => {
-    if (!confirm('Remove this user?')) return;
-    try {
-      await fetchWithAuth(`/org/${orgId}/users/${userId}`, { method: 'DELETE' });
-      loadOrgUsers(orgId);
-      alert('User removed!');
-    } catch (err) {
-      console.error('Delete user error:', err);
-      alert('Error removing user');
-    }
-  };
-
-  const startEdit = (org) => {
-    setEditingOrg(org);
-    setOrgForm({ name: org.name, description: org.description || '' });
-  };
+  console.log('Organizations:', organizationList);
+  console.log('Current org:', organization);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">RBAC Dashboard</h1>
-          <p className="text-gray-600">Welcome {user?.fullName} - Role: {role}</p>
+          <p>Welcome {user?.fullName} - Role: <strong>{role}</strong></p>
         </div>
-        <button 
-          onClick={() => window.Clerk?.signOut()}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-        >
-          Sign Out
-        </button>
+        <div className="flex gap-4">
+          <OrganizationSwitcher />
+          <button 
+            onClick={() => window.Clerk?.signOut()}
+            className="bg-red-500 text-white px-4 py-2 rounded"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
 
-      {/* Navigation */}
-      <div className="flex space-x-4 mb-6">
-        {(isSuperadmin || isAdmin) && (
-          <button 
-            onClick={() => setView('orgs')}
-            className={`px-4 py-2 rounded ${view === 'orgs' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-          >
-            Organizations
-          </button>
-        )}
-        {isSuperadmin && (
-          <button 
-            onClick={() => setView('users')}
-            className={`px-4 py-2 rounded ${view === 'users' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-          >
-            All Users
-          </button>
-        )}
-        {view === 'org-users' && (
-          <button 
-            onClick={() => setView('orgs')}
-            className="px-4 py-2 bg-gray-500 text-white rounded"
-          >
-            Back to Organizations
-          </button>
-        )}
-      </div>
-
-      {/* Organizations View */}
-      {view === 'orgs' && (isSuperadmin || isAdmin) && (
+      {/* Superadmin View */}
+      {isSuperadmin ? (
         <div>
-          <h2 className="text-xl font-semibold mb-4">Organizations</h2>
-          
-          {/* Create/Edit Form - Superadmin Only */}
-          {isSuperadmin && (
-            <div className="bg-gray-100 p-4 rounded mb-6">
-              <h3 className="font-medium mb-2">
-                {editingOrg ? 'Edit Organization' : 'Create Organization'}
-              </h3>
-              <div className="flex space-x-4">
-                <input
-                  type="text"
-                  placeholder="Organization Name"
-                  value={orgForm.name}
-                  onChange={(e) => setOrgForm({...orgForm, name: e.target.value})}
-                  className="border p-2 rounded flex-1"
-                />
-                <input
-                  type="text"
-                  placeholder="Description"
-                  value={orgForm.description}
-                  onChange={(e) => setOrgForm({...orgForm, description: e.target.value})}
-                  className="border p-2 rounded flex-1"
-                />
-                <button 
-                  onClick={editingOrg ? editOrg : createOrg}
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                  {editingOrg ? 'Update' : 'Create'}
-                </button>
-                {editingOrg && (
-                  <button 
-                    onClick={() => {
-                      setEditingOrg(null);
-                      setOrgForm({ name: '', description: '' });
-                    }}
-                    className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Create Organization Button */}
+          <div className="mb-6">
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            >
+              Create Organization
+            </button>
+          </div>
 
           {/* Organizations List */}
-          <div className="space-y-4">
-            {orgs.map((org) => (
-              <div key={org.id || org._id} className="border rounded p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold text-lg">{org.name}</h3>
-                    <p className="text-gray-600">{org.description}</p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button 
-                      onClick={() => getOneOrg(org.id || org._id)}
-                      className="bg-blue-500 text-white px-3 py-1 text-sm rounded hover:bg-blue-600"
-                    >
-                      View Details
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setSelectedOrg(org);
-                        loadOrgUsers(org.id || org._id);
-                        setView('org-users');
-                      }}
-                      className="bg-purple-500 text-white px-3 py-1 text-sm rounded hover:bg-purple-600"
-                    >
-                      View Users
-                    </button>
-                    {isSuperadmin && (
-                      <>
-                        <button 
-                          onClick={() => startEdit(org)}
-                          className="bg-yellow-500 text-white px-3 py-1 text-sm rounded hover:bg-yellow-600"
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => deleteOrg(org.id || org._id)}
+          <div>
+            <h2 className="text-xl font-bold mb-4">
+              Organizations ({organizationList?.length || 0})
+            </h2>
+            
+            {!orgListLoaded ? (
+              <div className="text-center py-4">Loading organizations...</div>
+            ) : organizationList && organizationList.length > 0 ? (
+              <div className="space-y-4">
+                {organizationList.map((org) => (
+                  <div key={org.organization.id} className="border p-4 rounded">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold">{org.organization.name}</h3>
+                        <p className="text-gray-600 text-sm">
+                          Members: {org.organization.membersCount}
+                        </p>
+                        <p className="text-gray-500 text-xs">
+                          ID: {org.organization.id}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => org.organization.destroy()}
                           className="bg-red-500 text-white px-3 py-1 text-sm rounded hover:bg-red-600"
                         >
                           Delete
                         </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Invite Section */}
-                {(isSuperadmin || isAdmin) && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="email"
-                        placeholder="Email to invite"
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        className="border p-2 rounded flex-1 text-sm"
-                      />
-                      {isSuperadmin && (
-                        <button 
-                          onClick={() => inviteAdmin(org.id || org._id)}
-                          className="bg-orange-500 text-white px-3 py-2 text-sm rounded hover:bg-orange-600"
-                        >
-                          Invite Admin
-                        </button>
-                      )}
-                      {(isSuperadmin || isAdmin) && (
-                        <button 
-                          onClick={() => inviteMember(org.id || org._id)}
-                          className="bg-green-500 text-white px-3 py-2 text-sm rounded hover:bg-green-600"
-                        >
-                          Invite Member
-                        </button>
-                      )}
+                      </div>
+                    </div>
+
+                    {/* Organization Members */}
+                    <div className="mt-4 pt-3 border-t">
+                      <h4 className="font-medium mb-2">Members:</h4>
+                      <div className="space-y-1">
+                        {org.organization.members?.map((member) => (
+                          <div key={member.id} className="flex justify-between items-center text-sm">
+                            <span>{member.publicUserData.firstName} {member.publicUserData.lastName}</span>
+                            <span className="px-2 py-1 bg-blue-100 text-xs rounded">
+                              {member.role}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* All Users View - Superadmin Only */}
-      {view === 'users' && isSuperadmin && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">All Users</h2>
-          <div className="space-y-2">
-            {allUsers.map((user) => (
-              <div key={user.id || user._id} className="border rounded p-3 flex justify-between items-center">
-                <div>
-                  <span className="font-medium">{user.email || user.emailAddresses?.[0]?.emailAddress}</span>
-                  <span className="ml-2 px-2 py-1 bg-gray-200 text-xs rounded">
-                    {user.role || 'member'}
-                  </span>
-                  <span className="ml-2 text-sm text-gray-500">
-                    Org: {user.orgClerkId || 'None'}
-                  </span>
-                </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No organizations found. Create your first organization above.
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Organization Users View */}
-      {view === 'org-users' && selectedOrg && (isSuperadmin || isAdmin) && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">
-            Users in {selectedOrg.name}
-          </h2>
-          <div className="space-y-2">
-            {orgUsers.map((user) => (
-              <div key={user.id || user._id} className="border rounded p-3 flex justify-between items-center">
-                <div>
-                  <span className="font-medium">{user.email || user.emailAddresses?.[0]?.emailAddress}</span>
-                  <span className="ml-2 px-2 py-1 bg-gray-200 text-xs rounded">
-                    {user.role || 'member'}
-                  </span>
-                </div>
-                <div className="space-x-2">
-                  <select 
-                    value={user.role || 'member'}
-                    onChange={(e) => updateUser(selectedOrg.id || selectedOrg._id, user.id || user._id, { role: e.target.value })}
-                    className="border p-1 rounded text-sm"
+          {/* Create Organization Modal */}
+          {showCreateForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Create Organization</h3>
+                  <button
+                    onClick={() => setShowCreateForm(false)}
+                    className="text-gray-500 hover:text-gray-700"
                   >
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                  <button 
-                    onClick={() => deleteUser(selectedOrg.id || selectedOrg._id, user.id || user._id)}
-                    className="bg-red-500 text-white px-2 py-1 text-sm rounded hover:bg-red-600"
-                  >
-                    Remove
+                    ×
                   </button>
                 </div>
+                <CreateOrganization 
+                  afterCreateOrganizationUrl="/dashboard"
+                  skipInvitationScreen={true}
+                />
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Member View */}
-      {role === 'member' && (
-        <div className="bg-blue-50 p-6 rounded">
-          <h2 className="text-xl font-semibold mb-2">Welcome Member!</h2>
-          <p className="text-gray-700">You have member access to your organization.</p>
+      ) : (
+        /* Member View */
+        <div className="space-y-6">
+          {/* Current Organization */}
+          {organization ? (
+            <div className="bg-blue-50 p-6 rounded">
+              <h2 className="text-xl font-bold mb-2">Your Organization</h2>
+              <h3 className="text-lg font-semibold">{organization.name}</h3>
+              <p className="text-gray-600">Members: {organization.membersCount}</p>
+              <p className="text-sm text-gray-500 mt-2">
+                You have member access to this organization.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 p-6 rounded">
+              <h2 className="text-xl font-bold mb-2">No Organization</h2>
+              <p className="text-gray-700">
+                You are not currently a member of any organization. 
+                Contact your administrator to get invited.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-// Main App Component
 const App = () => {
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
@@ -444,10 +172,7 @@ const App = () => {
         </SignedIn>
         <SignedOut>
           <div className="min-h-screen flex items-center justify-center">
-            <div className="max-w-md w-full">
-              <h2 className="text-2xl font-bold text-center mb-6">RBAC System</h2>
-              <SignIn routing="hash" />
-            </div>
+            <SignIn />
           </div>
         </SignedOut>
       </div>

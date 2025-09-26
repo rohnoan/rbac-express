@@ -8,7 +8,10 @@ import { usersRoutes } from './routes/users.routes';
 dotenv.config();
 
 const app = express();
-
+app.use(cors({
+  origin: 'http://localhost:5173', // Your React app URL
+  credentials: true
+}));
 // Middleware
 app.use(cors());
 app.use(express.json());
